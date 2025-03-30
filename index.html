@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drum Beat Maker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(270deg, #8A2BE2, #4B0082, #8A2BE2); /* Градиент фона */
+            background-size: 400% 400%; /* Увеличиваем размер градиента для анимации */
+            animation: gradient 15s ease infinite; /* Анимация градиента */
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        #beat-maker-container {
+            width: 100%; /* Растягиваем контейнер на всю ширину */
+            max-width: 820px; /* Максимальная ширина контейнера */
+            height: 525px;
+            background: black; /* Цвет фона контейнера */
+            border: 2px solid white;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            align-items: center;
+        }
+        
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: #8A2BE2; /* Цвет текста заголовка */
+            text-shadow: 0 0 5px #8A2BE2, 0 0 10px #8A2BE2, 0 0 15px #4B0082; /* Эффект неона */
+        }
+
+        .note {
+            width: 41px;
+            height: 32px;
+            border: 1px solid gray;
+            border-radius: 10px;
+            margin: 2px;
+            display: inline-block;
+            background: black;
+        }
+        
+        .note:hover {
+            background: #111;
+            cursor: pointer;
+        }
+        
+        .active {
+            background: white !important;
+        }
+        
+        #control-panel-container {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .instrument-row {
+            display: flex;
+            align-items: center;
+            width: 100%; /* Растягиваем строку на всю ширину */
+        }
+
+        .instrument-label {
+            font-family: 'Orbitron', sans-serif;
+            width: 80px; /* Ширина для названия инструмента */
+            text-align: right; /* Выравнивание текста по правому краю */
+            margin-right: 10px; /* Отступ между названием и нотами */
+            color: #8A2BE2; /* Цвет текста названия инструмента */
+            text-shadow: 0 0 5px #8A2BE2, 0 0 10px #8A2BE2, 0 0 15px #4B0082; /* Эффект неона */
+        }
+
+        #start_stop, #reset {
+            margin-right: 20px; /* Отступ между кнопками */
+            font-size: 1.8em; /* Размер шрифта для кнопок */
+        }
+
+        #bpm {
+            margin-left: 20px; /* Отступ слева от поля ввода BPM */
+            width: 50px; /* Ширина поля ввода BPM */
+        }
+    </style>
+</head>
+<body>
+    <div id="beat-maker-container">
+        <h1 id="title">Drum Beat Maker</h1>
+        <div id="beat-count-label" class="row"></div>
+        <div id="labels-and-grid" class="row">
+            <div id="grid"></div>
+        </div>
+        <div id="control-panel-container">
+            <i id="start_stop" class="fas fa-play"></i>
+            <i id="reset" class="fas fa-sync-alt"></i>
+            <input type="number" id="bpm" value="100" min="60" max="180"> BPM
+        </div>
+    </div>
+    <script>
+        const instruments = [
+            { name: "Crash1", url: "https://freewavesamples.com/files/Crash-Cymbal-1.wav" },
+            { name: "Crash2", url: "https://freewavesamples.com/files/Crash-Cymbal-2.wav" },
+            { name: "RideBell", url: "https://freewavesamples.com/files/Roland-SC-88-Ride-Bell.wav" },
+            { name: "Ride", url: "https://freewavesamples.com/files/Ride-Cymbal-1.wav" },
+            { name: "Tom1", url: "https://freewavesamples.com/files/Hi-Tom-1.wav" },
+            { name: "Tom2", url: "https://freewavesamples.com/files/Floor-Tom-1.wav" },
+            { name: "Tom3", url: "https://freewavesamples.com/files/Floor-Tom-3.wav" },
+            { name: "HHOpen", url: "https://freewavesamples.com/files/Open-Hi-Hat-1.wav" },
+            { name: "HHClosed", url: "https://freewavesamples.com/files/Closed-Hi-Hat-1.wav" },
+            { name: "HHPedal", url: "https://freewavesamples.com/files/Pedal-Hi-Hat-1.wav" },
+            { name: "Snare", url: "https://freewavesamples.com/files/Roland-R-8-Fat-Snare.wav" },
+            { name: "Kick", url: "https://freewavesamples.com/files/Bass-Drum-1.wav" }
+        ];
+        
+        const grid = document.getElementById("grid");
+        let selectedNotes = [];
+        let isPlaying = false;
+        let interval;
+
+        function createGrid() {
+            instruments.forEach((instrument) => {
+                const row = document.createElement("div");
+                row.classList.add("instrument-row");
+
+                const label = document.createElement("div");
+                label.classList.add("instrument-label");
+                label.textContent = instrument.name; // Подпись для инструмента
+                row.appendChild(label);
+
+                for (let j = 0; j < 16; j++) {
+                    const note = document.createElement("div");
+                    note.classList.add("note");
+                    note.dataset.instrument = instrument.name;
+                    note.dataset.index = j;
+                    note.addEventListener("click", () => toggleNote(note));
+                    row.appendChild(note);
+                }
+                grid.appendChild(row);
+            });
+        }
+
+        function toggleNote(note) {
+            note.classList.toggle("active");
+            const key = note.dataset.instrument + "-" + note.dataset.index;
+            if (note.classList.contains("active")) {
+                selectedNotes.push(key);
+            } else {
+                selectedNotes = selectedNotes.filter(n => n !== key);
+            }
+        }
+
+        function playBeat() {
+            let count = 0;
+            interval = setInterval(() => {
+                instruments.forEach(instrument => {
+                    const key = instrument.name + "-" + count;
+                    if (selectedNotes.includes(key)) {
+                        new Audio(instrument.url).play();
+                    }
+                });
+                count = (count + 1) % 16;
+            }, 60000 / document.getElementById("bpm").value);
+        }
+
+        document.getElementById("start_stop").addEventListener("click", () => {
+            if (isPlaying) {
+                clearInterval(interval);
+                document.getElementById("start_stop").classList.replace("fa-pause", "fa-play");
+            } else {
+                playBeat();
+                document.getElementById("start_stop").classList.replace("fa-play", "fa-pause");
+            }
+            isPlaying = !isPlaying;
+        });
+
+        document.getElementById("reset").addEventListener("click", () => {
+            selectedNotes = [];
+            document.querySelectorAll(".note").forEach(note => note.classList.remove("active"));
+            clearInterval(interval);
+            isPlaying = false;
+            document.getElementById("start_stop").classList.replace("fa-pause", "fa-play");
+        });
+
+        createGrid();
+    </script>
+</body>
+</html>
